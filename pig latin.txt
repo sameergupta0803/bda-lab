@@ -1,0 +1,173 @@
+-- ==============================================================================
+-- 1. START PIG IN LOCAL OR HADOOP MODE (Run in Ubuntu Terminal)[cite: 20, 22]
+-- ==============================================================================
+-- pig -x local
+-- pig -x mapreduce
+-- pig -x mapreduce rainfall_analysis.pig
+
+
+-- ==============================================================================
+-- 2. LOAD AND PREPARE THE DATASET[cite: 20]
+-- ==============================================================================
+weather = LOAD '/user/hadoop/weather/weather.csv'
+    USING PigStorage(',')
+    AS (station: chararray, date: chararray, rainfall: double,
+        min_temp: double, max_temp: double, wind_speed: double,
+        air_pressure: double);
+
+-- Skip header row (if present)[cite: 20]
+weather_data = FILTER weather BY station != 'station';
+
+-- Extract year and month from yyyy-MM-dd date[cite: 20]
+with_date = FOREACH weather_data GENERATE
+    station, date, rainfall, min_temp, max_temp,
+    wind_speed, air_pressure,
+    SUBSTRING(date, 0, 4) AS year,
+    SUBSTRING(date, 5, 7) AS month;
+
+
+-- ==============================================================================
+-- 3. AVERAGE RAINFALL FOR EACH WEATHER STATION[cite: 20]
+-- ==============================================================================
+rain_by_station = GROUP weather_data BY station;
+avg_rain = FOREACH rain_by_station GENERATE
+    group AS station,
+    AVG(weather_data.rainfall) AS average_rainfall;
+DUMP avg_rain;
+
+
+-- ==============================================================================
+-- 4. YEARLY RAINFALL AND STATION WITH HIGHEST YEARLY RAINFALL[cite: 20]
+-- ==============================================================================
+station_year = GROUP with_date BY (station, year);
+yearly_rain = FOREACH station_year GENERATE
+    FLATTEN(group) AS (station, year),
+    SUM(with_date.rainfall) AS total_rainfall;
+ordered_rain = ORDER yearly_rain BY total_rainfall DESC;
+top_yearly_rain = LIMIT ordered_rain 1;
+DUMP top_yearly_rain;
+
+
+-- ==============================================================================
+-- 5. SEASONAL AVERAGE TEMPERATURE AND HOTTEST SEASON[cite: 20]
+-- ==============================================================================
+season_data = FOREACH with_date GENERATE
+    station, min_temp, max_temp,
+    (CASE
+        WHEN (int)month >= 3 AND (int)month <= 5 THEN 'Summer'
+        WHEN (int)month >= 6 AND (int)month <= 9 THEN 'Monsoon'
+        WHEN (int)month >= 10 AND (int)month <= 11 THEN 'PostMonsoon'
+        ELSE 'Winter'
+    END) AS season;
+
+season_group = GROUP season_data BY season;
+season_avg = FOREACH season_group GENERATE
+    group AS season,
+    AVG(season_data.max_temp) AS average_max_temp,
+    AVG(season_data.min_temp) AS average_min_temp;
+hottest = ORDER season_avg BY average_max_temp DESC;
+DUMP hottest;
+
+
+-- ==============================================================================
+-- 6. AVERAGE TEMPERATURE ACROSS ALL STATIONS[cite: 20, 21]
+-- ==============================================================================
+all_rows = GROUP weather_data ALL;
+overall_avg = FOREACH all_rows GENERATE
+    AVG(weather_data.max_temp) AS avg_max_temp,
+    AVG(weather_data.min_temp) AS avg_min_temp;
+DUMP overall_avg;
+
+
+-- ==============================================================================
+-- 7. STATIONS WHERE RAINFALL EXCEEDS A THRESHOLD[cite: 21]
+-- ==============================================================================
+station_rain = GROUP weather_data BY station;
+station_totals = FOREACH station_rain GENERATE
+    group AS station,
+    SUM(weather_data.rainfall) AS total_rainfall;
+high_rain_stations = FILTER station_totals BY total_rainfall > 1000;
+DUMP high_rain_stations;
+
+
+-- ==============================================================================
+-- 8. WIND SPEED ON RAINY VS NON-RAINY DAYS[cite: 21]
+-- ==============================================================================
+rain_flag = FOREACH weather_data GENERATE
+    (rainfall > 0 ? 'Rainy' : 'NonRainy') AS day_type,
+    wind_speed;
+wind_group = GROUP rain_flag BY day_type;
+wind_avg = FOREACH wind_group GENERATE
+    group AS day_type,
+    AVG(rain_flag.wind_speed) AS average_wind_speed;
+DUMP wind_avg;
+
+
+-- ==============================================================================
+-- 9. MONTHLY AND SEASONAL WEATHER PATTERNS[cite: 21]
+-- ==============================================================================
+monthly_data = FOREACH with_date GENERATE
+    month, rainfall, min_temp, max_temp, wind_speed;
+month_group = GROUP monthly_data BY month;
+month_stats = FOREACH month_group GENERATE
+    group AS month,
+    AVG(monthly_data.rainfall) AS avg_rainfall,
+    AVG(monthly_data.max_temp) AS avg_max_temp,
+    AVG(monthly_data.min_temp) AS avg_min_temp,
+    AVG(monthly_data.wind_speed) AS avg_wind_speed;
+DUMP month_stats;
+DUMP season_avg;
+
+
+-- ==============================================================================
+-- 10. TOP 10 LARGEST DAILY TEMPERATURE RANGES[cite: 21]
+-- ==============================================================================
+ranges = FOREACH weather_data GENERATE
+    station, date,
+    (max_temp - min_temp) AS temp_range;
+sorted_ranges = ORDER ranges BY temp_range DESC;
+top10_ranges = LIMIT sorted_ranges 10;
+DUMP top10_ranges;
+
+
+-- ==============================================================================
+-- 11. YEAR-OVER-YEAR AVERAGE TEMPERATURE INCREASE[cite: 21]
+-- ==============================================================================
+station_year_temp = GROUP with_date BY (station, year);
+year_avg_temp = FOREACH station_year_temp GENERATE
+    FLATTEN(group) AS (station, year),
+    AVG(with_date.max_temp) AS avg_max_temp;
+ordered_years = ORDER year_avg_temp BY station, year;
+DUMP ordered_years;
+
+-- Self-join for previous-year comparison[cite: 21]
+current = FOREACH year_avg_temp GENERATE
+    station, (int)year AS year_int, avg_max_temp;
+previous = FOREACH current GENERATE
+    station, (year_int + 1) AS next_year, avg_max_temp AS prev_avg;
+joined = JOIN current BY (station, year_int),
+              previous BY (station, next_year);
+increase = FILTER joined BY current::avg_max_temp > previous::prev_avg;
+DUMP increase;
+
+
+-- ==============================================================================
+-- 12. STATION WITH HIGHEST AVERAGE RAINFALL AND ITS WEATHER METRICS[cite: 21, 22]
+-- ==============================================================================
+station_group = GROUP weather_data BY station;
+station_stats = FOREACH station_group GENERATE
+    group AS station,
+    AVG(weather_data.rainfall) AS avg_rainfall,
+    AVG(weather_data.max_temp) AS avg_temperature,
+    AVG(weather_data.wind_speed) AS avg_wind_speed,
+    AVG(weather_data.air_pressure) AS avg_air_pressure;
+ranked_stations = ORDER station_stats BY avg_rainfall DESC;
+top_station = LIMIT ranked_stations 1;
+DUMP top_station;
+
+
+-- ==============================================================================
+-- 13. SAVE PERSISTENT OUTPUT TO HDFS[cite: 22]
+-- ==============================================================================
+STORE avg_rain INTO '/user/hadoop/weather/output_avg_rain'
+    USING PigStorage(',');

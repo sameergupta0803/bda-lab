@@ -1,0 +1,230 @@
+// ==========================================
+// 1. UBUNTU TERMINAL COMMANDS (Run in Bash)
+// ==========================================
+// sudo systemctl start mongod
+// sudo systemctl status mongod
+// mongosh
+
+// ==========================================
+// 2. DATABASE & COLLECTION SETUP[cite: 2]
+// ==========================================
+show dbs
+use library_db
+db
+
+db.createCollection("books")
+db.createCollection("members")
+db.createCollection("borrows")
+show collections
+
+// ==========================================
+// 3. INSERT SAMPLE DATA[cite: 2]
+// ==========================================
+// 4A. Insert 5 books[cite: 2]
+db.books.insertMany([
+  { title: "Introduction to Algorithms", author: "Thomas H. Cormen", genre: "Computer Science", year: 2009, copies: 3 },
+  { title: "Database System Concepts", author: "Abraham Silberschatz", genre: "Database", year: 2019, copies: 5 },
+  { title: "Data Science from Scratch", author: "Joel Grus", genre: "Data Science", year: 2016, copies: 2 },
+  { title: "MongoDB: The Definitive Guide", author: "Shannon Bradshaw", genre: "Database", year: 2020, copies: 0 },
+  { title: "Learning Python", author: "Mark Lutz", genre: "Programming", year: 2023, copies: 4 }
+])
+
+// 4B. Insert 5 members[cite: 2]
+db.members.insertMany([
+  { name: "Aarav Shah", email: "aarav@example.com", joined_date: ISODate("2021-06-15"), membership_type: "regular" },
+  { name: "Diya Mehta", email: "diya@example.com", joined_date: ISODate("2023-02-10"), membership_type: "premium" },
+  { name: "Rohan Patil", email: "rohan@example.com", joined_date: ISODate("2020-11-20"), membership_type: "premium" },
+  { name: "Isha Desai", email: "isha@example.com", joined_date: ISODate("2022-08-05"), membership_type: "regular" },
+  { name: "Kabir Rao", email: "kabir@example.com", joined_date: ISODate("2024-01-12"), membership_type: "regular" }
+])
+
+// 4C. Check inserted data and IDs[cite: 3]
+db.books.find()
+db.members.find()
+db.books.find({}, { _id: 1, title: 1 })
+db.members.find({}, { _id: 1, name: 1 })
+
+// ==========================================
+// 4. SECTION A - CRUD OPERATIONS ON BOOKS[cite: 3]
+// ==========================================
+// Task 2 - Find books by a specific author[cite: 3]
+db.books.find({ author: "Mark Lutz" })
+
+// Task 3 - Update copies for a given title[cite: 3]
+db.books.updateOne(
+  { title: "Learning Python" },
+  { $set: { copies: 7 } }
+)
+db.books.find({ title: "Learning Python" })
+
+// Task 4 - Delete a book that has zero copies[cite: 3]
+db.books.deleteOne({ copies: 0 })
+db.books.find()
+
+// Task 5 - Find books published after 2015[cite: 3]
+db.books.find({ year: { $gt: 2015 } })
+
+// ==========================================
+// 5. SECTION B - AGGREGATION AND SEARCH[cite: 3]
+// ==========================================
+// Task 6 - Group books by genre and count books[cite: 3]
+db.books.aggregate([
+  { $group: { _id: "$genre", totalBooks: { $sum: 1 } } },
+  { $sort: { _id: 1 } }
+])
+
+// Task 7 - Find the 3 most recent books[cite: 3]
+db.books.find().sort({ year: 1 }).limit(3)
+
+// Task 8 - Count books published by each author[cite: 3]
+db.books.aggregate([
+  { $group: { _id: "$author", totalBooks: { $sum: 1 } } },
+  { $sort: { totalBooks: -1 } }
+])
+
+// Task 9 - Search titles containing the word "data"[cite: 3]
+db.books.find({
+  title: { $regex: "data", $options: "i" }
+})
+
+// Task 10 - Average publication year by genre[cite: 3]
+db.books.aggregate([
+  { $group: { _id: "$genre", averageYear: { $avg: "$year" } } },
+  { $sort: { _id: 1 } }
+])
+
+// ==========================================
+// 6. SECTION C - MEMBERS COLLECTION[cite: 4]
+// ==========================================
+// Task 12 - Find members who joined before 2022[cite: 4]
+db.members.find({
+  joined_date: { $lt: ISODate("2022-01-01") }
+})
+
+// Task 13 - Update a member's email address[cite: 4]
+db.members.updateOne(
+  { name: "Aarav Shah" },
+  { $set: { email: "aarav.shah@example.com" } }
+)
+db.members.find({ name: "Aarav Shah" })
+
+// Task 15 - List all premium members[cite: 4]
+db.members.find({ membership_type: "premium" })
+
+// ==========================================
+// 7. SECTION D - BORROWS COLLECTION & JOINS[cite: 4]
+// ==========================================
+// Task 16 - Insert borrow records[cite: 4]
+const aarav = db.members.findOne({ name: "Aarav Shah" })
+const diya = db.members.findOne({ name: "Diya Mehta" })
+const rohan = db.members.findOne({ name: "Rohan Patil" })
+
+const algorithms = db.books.findOne({ title: "Introduction to Algorithms" })
+const databaseBook = db.books.findOne({ title: "Database System Concepts" })
+const pythonBook = db.books.findOne({ title: "Learning Python" })
+
+db.borrows.insertMany([
+  { member_id: aarav._id, book_id: algorithms._id, borrow_date: ISODate("2026-10-01"), return_date: null },
+  { member_id: diya._id, book_id: databaseBook._id, borrow_date: ISODate("2026-10-20"), return_date: null },
+  { member_id: rohan._id, book_id: pythonBook._id, borrow_date: ISODate("2026-10-25"), return_date: ISODate("2026-11-02") }
+])
+db.borrows.find()
+
+// Task 14 - Delete members with no borrow records (Run AFTER Task 16)[cite: 4]
+db.borrows.find({}, { member_id: 1 })
+db.members.deleteMany({
+  name: { $in: ["Isha Desai", "Kabir Rao"] }
+})
+
+// Task 17 - Find all books borrowed by a specific member[cite: 5]
+const member = db.members.findOne({ name: "Aarav Shah" })
+const borrowRecords = db.borrows.find({ member_id: member._id }).toArray()
+const borrowedBookIds = borrowRecords.map(b => b.book_id)
+db.books.find({ _id: { $in: borrowedBookIds } })
+
+// Task 18 - Find overdue books[cite: 5]
+db.borrows.aggregate([
+  { $match: {
+      $or: [
+        { return_date: null },
+        { return_date: { $lt: new Date() } }
+      ]
+  }},
+  { $lookup: {
+      from: "books",
+      localField: "book_id",
+      foreignField: "_id",
+      as: "book"
+  }},
+  { $unwind: "$book" },
+  { $project: {
+      _id: 0,
+      bookTitle: "$book.title",
+      borrow_date: 1,
+      return_date: 1,
+      member_id: 1
+  }}
+])
+
+// Task 19 - Count how many books each member has borrowed[cite: 5]
+db.borrows.aggregate([
+  { $group: {
+      _id: "$member_id",
+      totalBorrowed: { $sum: 1 }
+  }},
+  { $lookup: {
+      from: "members",
+      localField: "_id",
+      foreignField: "_id",
+      as: "member"
+  }},
+  { $unwind: "$member" },
+  { $project: {
+      _id: 0,
+      memberName: "$member.name",
+      totalBorrowed: 1
+  }}
+])
+
+// Task 20 - Join members with the books they borrowed using $lookup[cite: 5, 6]
+db.members.aggregate([
+  { $lookup: {
+      from: "borrows",
+      localField: "_id",
+      foreignField: "member_id",
+      as: "borrowRecords"
+  }},
+  { $unwind: {
+      path: "$borrowRecords",
+      preserveNullAndEmptyArrays: true
+  }},
+  { $lookup: {
+      from: "books",
+      localField: "borrowRecords.book_id",
+      foreignField: "_id",
+      as: "bookDetails"
+  }},
+  { $project: {
+      _id: 0,
+      memberName: "$name",
+      email: 1,
+      bookTitle: { $arrayElemAt: ["$bookDetails.title", 0] },
+      borrowDate: "$borrowRecords.borrow_date",
+      returnDate: "$borrowRecords.return_date"
+  }}
+])
+
+// ==========================================
+// 8. UTILITY & CLEANUP COMMANDS[cite: 6]
+// ==========================================
+db.books.find().pretty()
+db.members.find().pretty()
+db.borrows.find().pretty()
+db.books.countDocuments()
+db.members.countDocuments()
+db.borrows.countDocuments()
+
+// Destructive reset commands (commented out for safety)[cite: 6]:
+// db.books.drop()
+// db.dropDatabase()
+// exit

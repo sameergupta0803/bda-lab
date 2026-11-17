@@ -1,0 +1,2 @@
+Hadoop is useful. Hadoop is fast.
+Big data uses hadoop.

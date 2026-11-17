@@ -1,0 +1,4 @@
+userId,movieId,tag,timestamp
+1,101,sci-fi,1700000
+2,101,classic,1700005
+3,205,comedy,1700010

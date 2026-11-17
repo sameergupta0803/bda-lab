@@ -1,0 +1,140 @@
+# ==========================================
+# 1. STARTUP & VERSION CHECK[cite: 8]
+# ==========================================
+hadoop version
+hdfs version
+sudo service ssh start
+start-dfs.sh
+start-yarn.sh
+start-hbase.sh
+
+# ==========================================
+# 2. ALL 30 ASSIGNMENT COMMANDS[cite: 8]
+# ==========================================
+# 1 - Create HDFS directory /user/MCA/input[cite: 8]
+hdfs dfs -mkdir -p /user/MCA/input
+
+# 2 - Upload local data.txt to HDFS[cite: 8]
+hdfs dfs -put data.txt /user/MCA/input/
+
+# 3 - List files and directories under /user/MCA[cite: 8]
+hdfs dfs -ls /user/MCA
+
+# 4 - Display HDFS data.txt contents[cite: 8]
+hdfs dfs -cat /user/MCA/input/data.txt
+
+# 5 - Copy report.csv from HDFS to local Desktop[cite: 8]
+mkdir -p /home/MCA/Desktop
+hdfs dfs -get /user/MCA/output/report.csv /home/MCA/Desktop/
+
+# 6 - Create nested project/logs/2025 directories[cite: 8]
+hdfs dfs -mkdir -p /user/MCA/project/logs/2025
+
+# 7 - Delete old_data.csv from HDFS input[cite: 8]
+hdfs dfs -rm /user/MCA/input/old_data.csv
+
+# 8 - Remove empty HDFS directory /user/MCA/tmp[cite: 8]
+hdfs dfs -rmdir /user/MCA/tmp
+
+# 9 - Check disk usage of HDFS input directory[cite: 8]
+hdfs dfs -du -h /user/MCA/input
+hdfs dfs -du -s -h /user/MCA/input
+
+# 10 - Display block-level information for large_file.csv[cite: 8]
+hdfs fsck /user/MCA/data/large_file.csv -files -blocks -locations
+
+# 11 - Move temp.json from tmp to data[cite: 9]
+hdfs dfs -mv /user/MCA/tmp/temp.json /user/MCA/data/
+
+# 12 - Rename raw_data.csv to cleaned_data.csv[cite: 9]
+hdfs dfs -mv /user/MCA/input/raw_data.csv /user/MCA/input/cleaned_data.csv
+
+# 13 - Check replication factor and block size of data.txt[cite: 9]
+hdfs dfs -stat "Replication: %r Block size: %o" /user/MCA/input/data.txt
+
+# 14 - Check whether summary.log exists in HDFS[cite: 9]
+hdfs dfs -test -e /user/MCA/data/summary.log && echo "File exists" || echo "File does not exist"
+
+# 15 - Fetch a file locally and immediately delete it from HDFS[cite: 9]
+hdfs dfs -get /user/MCA/data/summary.log /home/MCA/Desktop/
+hdfs dfs -rm /user/MCA/data/summary.log
+
+# 16 - Change owner of data.txt to hadoopuser[cite: 9]
+hdfs dfs -chown hadoopuser /user/MCA/input/data.txt
+
+# 17 - Change group of /user/MCA/project to analytics[cite: 9]
+hdfs dfs -chgrp analytics /user/MCA/project
+
+# 18 - Set permissions of data.txt to 640[cite: 9]
+hdfs dfs -chmod 640 /user/MCA/input/data.txt
+
+# 19 - Display permission, owner and group[cite: 9]
+hdfs dfs -ls /user/MCA/input/data.txt
+
+# 20 - Append local append.txt to HDFS data.txt[cite: 9]
+hdfs dfs -appendToFile append.txt /user/MCA/input/data.txt
+
+# 21 - Create empty.log in HDFS input[cite: 9]
+hdfs dfs -touchz /user/MCA/input/empty.log
+
+# 22 - Count directories, files and bytes under /user/MCA[cite: 9]
+hdfs dfs -count /user/MCA
+
+# 23 - Show checksum of data.txt[cite: 9]
+hdfs dfs -checksum /user/MCA/input/data.txt
+
+# 24 - Set replication factor of data.txt to 2[cite: 9]
+hdfs dfs -setrep 2 /user/MCA/input/data.txt
+
+# 25 - Display first 5 lines of data.txt[cite: 9]
+hdfs dfs -cat /user/MCA/input/data.txt | head -n 5
+
+# 26 - Copy local example.json to HDFS using -copyFromLocal[cite: 9]
+hdfs dfs -copyFromLocal example.json /user/MCA/input/
+
+# 27 - Copy result.csv from HDFS to local using -copyToLocal[cite: 9, 10]
+mkdir -p /home/MCA/Desktop
+hdfs dfs -copyToLocal /user/MCA/output/result.csv /home/MCA/Desktop/
+
+# 28 - Upload all local .log files to HDFS /user/MCA/logs/[cite: 10]
+hdfs dfs -mkdir -p /user/MCA/logs
+hdfs dfs -put /path/to/local/folder/*.log /user/MCA/logs/
+
+# 29 - Display contents of multiple HDFS files using a wildcard[cite: 10]
+hdfs dfs -cat '/user/MCA/input/*.log'
+
+# 30 - Recursively list all files and subdirectories under /user/MCA[cite: 10]
+hdfs dfs -ls -R /user/MCA
+
+# ==========================================
+# 3. USEFUL UTILITY & CHECK COMMANDS[cite: 10]
+# ==========================================
+hdfs dfs -ls /user/MCA
+hdfs dfs -ls -R /user/MCA
+hdfs dfs -cat /user/MCA/input/data.txt
+hdfs dfs -du -h /user/MCA
+hdfs dfs -count /user/MCA
+hdfs dfs -df -h /
+hdfs dfs -help
+
+# =========================================
+# Pre setup for hdfs lab
+# =========================================
+# 1. Create local working directory and sample files
+mkdir -p ~/hdfs_lab ~/Desktop && cd ~/hdfs_lab
+printf "line1\nline2\nline3\nline4\nline5\nline6\n" > data.txt
+echo "appended line" > append.txt
+echo '{"status":"ok"}' > example.json
+echo "log entry 1" > app1.log
+echo "log entry 2" > app2.log
+
+# 2. Pre-create HDFS folders and dummy files expected by later questions
+hdfs dfs -mkdir -p /user/MCA/output /user/MCA/data /user/MCA/tmp /user/MCA/input
+echo "id,val" | hdfs dfs -put - /user/MCA/output/report.csv
+echo "id,val" | hdfs dfs -put - /user/MCA/output/result.csv
+echo "old" | hdfs dfs -put - /user/MCA/input/old_data.csv
+echo "raw" | hdfs dfs -put - /user/MCA/input/raw_data.csv
+echo "big" | hdfs dfs -put - /user/MCA/data/large_file.csv
+echo "sum" | hdfs dfs -put - /user/MCA/data/summary.log
+echo "{}" | hdfs dfs -put - /user/MCA/tmp/temp.json
+echo "input log" | hdfs dfs -put - /user/MCA/input/sample.log

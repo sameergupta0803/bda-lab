@@ -1,0 +1,4 @@
+UserId,TrackId,Shared,Radio,Skip
+U1,T10,1,1,0
+U2,T10,0,1,1
+U1,T20,1,0,0

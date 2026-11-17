@@ -1,0 +1,427 @@
+# ==============================================================================
+# 0. UBUNTU SETUP & HADOOP STREAMING COMMANDS (Run in Terminal)[cite: 12, 18]
+# ==============================================================================
+# mkdir -p ~/mapreduce_practicals && cd ~/mapreduce_practicals
+# find $HADOOP_HOME -name 'hadoop-streaming*.jar'
+# export STREAMING_JAR=/path/to/hadoop-streaming-VERSION.jar
+# chmod +x mapper.py reducer.py
+#
+# Local test:
+# cat input.txt | ./mapper.py | sort | ./reducer.py
+#
+# Run on HDFS:
+cd ~/mapreduce_practicals/p1
+hdfs dfs -mkdir -p /user/$USER/p1/input
+hdfs dfs -put -f input.txt /user/$USER/p1/input/
+hdfs dfs -rm -r -f /user/$USER/p1/output
+
+hadoop jar $STREAMING_JAR \
+  -D mapreduce.job.reduces=1 \
+  -files mapper.py,reducer.py \
+  -mapper mapper.py \
+  -reducer reducer.py \
+  -input /user/$USER/p1/input \
+  -output /user/$USER/p1/output
+
+hdfs dfs -cat /user/$USER/p2/output/part-00000
+
+
+# ==============================================================================
+# PRACTICAL 1 - FREQUENCY OF A GIVEN WORD[cite: 12]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+import re
+
+TARGET = "hadoop"
+
+for line in sys.stdin:
+    words = re.findall(r"[A-Za-z0-9]+", line.lower())
+    for word in words:
+        if word == TARGET:
+            print(TARGET + "\t1")
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+total = 0
+
+for line in sys.stdin:
+    word, count = line.strip().split("\t")
+    total += int(count)
+
+print("hadoop\t" + str(total))
+
+
+# ==============================================================================
+# PRACTICAL 2 - MONTHLY AND YEARLY MAXIMUM WEATHER VALUES[cite: 12, 13]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    parts = line.strip().split(",")
+    if len(parts) != 5:
+        continue
+    year, month, temp, rain, dew = parts
+    key = year + "-" + month
+    print(key + "\t" + temp + "," + rain + "," + dew)
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+current = None
+max_temp = max_rain = max_dew = None
+
+def show():
+    if current is not None:
+        print(current + "\t" + str(max_temp) + "\t" + str(max_rain) + "\t" + str(max_dew))
+
+for line in sys.stdin:
+    key, values = line.strip().split("\t")
+    temp, rain, dew = map(float, values.split(","))
+    if key != current:
+        show()
+        current = key
+        max_temp, max_rain, max_dew = temp, rain, dew
+    else:
+        max_temp = max(max_temp, temp)
+        max_rain = max(max_rain, rain)
+        max_dew = max(max_dew, dew)
+
+show()
+
+
+# ==============================================================================
+# PRACTICAL 3 - FIND STUDENT GRADES[cite: 13]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    parts = line.strip().split(",")
+    if len(parts) == 2:
+        name, marks = parts
+        print(name + "\t" + marks)
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    name, marks = line.strip().split("\t")
+    marks = float(marks)
+    if marks >= 80:
+        grade = "A"
+    elif marks >= 60:
+        grade = "B"
+    elif marks >= 40:
+        grade = "C"
+    else:
+        grade = "F"
+    print(name + "\t" + str(marks) + "\t" + grade)
+
+
+# ==============================================================================
+# PRACTICAL 4 - MATRIX MULTIPLICATION[cite: 13, 14]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+M = 2  # number of rows in matrix A
+P = 2  # number of columns in matrix B
+
+for line in sys.stdin:
+    matrix, row, col, value = line.strip().split(",")
+    row, col, value = int(row), int(col), float(value)
+    if matrix == "A":
+        i, k = row, col
+        for j in range(P):
+            print(f"{i},{j}\tA,{k},{value}")
+    elif matrix == "B":
+        k, j = row, col
+        for i in range(M):
+            print(f"{i},{j}\tB,{k},{value}")
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+current = None
+a = {}
+b = {}
+
+def show():
+    if current is not None:
+        total = 0
+        for k in a:
+            if k in b:
+                total += a[k] * b[k]
+        print(current + "\t" + str(total))
+
+for line in sys.stdin:
+    key, item = line.strip().split("\t")
+    matrix, k, value = item.split(",")
+    k, value = int(k), float(value)
+    if key != current:
+        show()
+        current = key
+        a, b = {}, {}
+    if matrix == "A":
+        a[k] = value
+    else:
+        b[k] = value
+
+show()
+
+
+# ==============================================================================
+# PRACTICAL 5 - MAXIMUM ELECTRICAL CONSUMPTION IN EACH YEAR[cite: 14, 15]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    parts = line.strip().split(",")
+    if len(parts) == 3:
+        year, month, consumption = parts
+        print(year + "\t" + consumption)
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+year_now = None
+maximum = None
+
+def show():
+    if year_now is not None:
+        print(year_now + "\t" + str(maximum))
+
+for line in sys.stdin:
+    year, value = line.strip().split("\t")
+    value = float(value)
+    if year != year_now:
+        show()
+        year_now = year
+        maximum = value
+    else:
+        maximum = max(maximum, value)
+
+show()
+
+
+# ==============================================================================
+# PRACTICAL 6 - CLASSIFY WEATHER AS SUNNY OR COOL[cite: 15]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    parts = line.strip().split(",")
+    if len(parts) != 3:
+        continue
+    date, temp, sunshine = parts
+    print(date + "\t" + temp + "," + sunshine)
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    date, values = line.strip().split("\t")
+    temp, sunshine = map(float, values.split(","))
+    if sunshine >= 6:
+        result = "Sunny"
+    elif temp <= 20:
+        result = "Cool"
+    else:
+        result = "Not Sunny/Cool"
+    print(date + "\t" + result)
+
+
+# ==============================================================================
+# PRACTICAL 7 - NUMBER OF PRODUCTS SOLD IN EACH COUNTRY[cite: 15]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+import csv
+
+for line in sys.stdin:
+    row = next(csv.reader([line]))
+    if len(row) >= 8:
+        country = row[7].strip()
+        if country:
+            print(country + "\t1")
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+country_now = None
+total = 0
+
+def show():
+    if country_now is not None:
+        print(country_now + "\t" + str(total))
+
+for line in sys.stdin:
+    country, count = line.strip().split("\t")
+    if country != country_now:
+        show()
+        country_now = country
+        total = 0
+    total += int(count)
+
+show()
+
+
+# ==============================================================================
+# PRACTICAL 8 - MOVIELENS TAGS ASSOCIATED WITH EACH MOVIE[cite: 16]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+import csv
+
+for line in sys.stdin:
+    row = next(csv.reader([line]))
+    if len(row) >= 3 and row[1] != "movieId":
+        movie_id = row[1]
+        tag = row[2]
+        print(movie_id + "\t" + tag)
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+movie_now = None
+tags = []
+
+def show():
+    if movie_now is not None:
+        print(movie_now + "\t" + ", ".join(tags))
+
+for line in sys.stdin:
+    movie, tag = line.rstrip("\n").split("\t", 1)
+    if movie != movie_now:
+        show()
+        movie_now = movie
+        tags = []
+    tags.append(tag)
+
+show()
+
+
+# ==============================================================================
+# PRACTICAL 9 - BOOKS PUBLISHED EACH YEAR AND YEAR WITH MOST BOOKS[cite: 16, 17]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+import csv
+
+for line in sys.stdin:
+    row = next(csv.reader([line]))
+    if len(row) >= 3 and row[2] != "PublishedYear":
+        year = row[2].strip()
+        if year:
+            print(year + "\t1")
+
+# --- reducer.py (Version 1: Streaming control-break) ---
+#!/usr/bin/env python3
+import sys
+
+year_now = None
+count = 0
+best_year = None
+best_count = 0
+
+def show():
+    if year_now is not None:
+        print(year_now + "\t" + str(count))
+
+for line in sys.stdin:
+    year, value = line.strip().split("\t")
+    if year != year_now:
+        show()
+        year_now = year
+        count = 0
+    count += int(value)
+
+show()
+
+# --- reducer.py (Version 2: Recommended reliable maximum version) ---
+#!/usr/bin/env python3
+import sys
+
+counts = {}
+
+for line in sys.stdin:
+    year, value = line.strip().split("\t")
+    counts[year] = counts.get(year, 0) + int(value)
+
+for year in sorted(counts):
+    print(year + "\t" + str(counts[year]))
+
+best = max(counts, key=counts.get)
+print("MAX_BOOKS_YEAR\t" + best + "\t" + str(counts[best]))
+
+
+# ==============================================================================
+# PRACTICAL 10 - XYZ MUSIC LISTENING LOG ANALYSIS[cite: 17]
+# ==============================================================================
+# --- mapper.py ---
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    parts = line.strip().split(",")
+    if len(parts) != 5 or parts[0].strip() == "UserId":
+        continue
+    user, track, shared, radio, skip = [x.strip() for x in parts]
+    # Key ALL counts unique users globally.
+    print("ALL\tUSER:" + user)
+    # Per-track counters.
+    print("TRACK:" + track + "\tSHARED:" + shared)
+    print("TRACK:" + track + "\tRADIO:" + radio)
+    print("TRACK:" + track + "\tLISTEN:1")
+    print("TRACK:" + track + "\tSKIP:" + str(int(radio) * int(skip)))
+
+# --- reducer.py ---
+#!/usr/bin/env python3
+import sys
+
+users = set()
+track_stats = {}
+
+for line in sys.stdin:
+    key, value = line.strip().split("\t", 1)
+    if key == "ALL":
+        users.add(value.replace("USER:", ""))
+    else:
+        track = key.replace("TRACK:", "")
+        if track not in track_stats:
+            track_stats[track] = [0, 0, 0, 0]
+        if value.startswith("SHARED:"):
+            track_stats[track][0] += int(value[7:])
+        elif value.startswith("RADIO:"):
+            track_stats[track][1] += int(value[6:])
+        elif value == "LISTEN:1":
+            track_stats[track][2] += 1
+        elif value.startswith("SKIP:"):
+            track_stats[track][3] += int(value[5:])
+
+print("UNIQUE_LISTENERS\t" + str(len(users)))
+for track in sorted(track_stats):
+    s, r, listens, skips = track_stats[track]
+    print("TRACK", track, "SHARED", s, "RADIO", r, "TOTAL_LISTENS", listens, "RADIO_SKIPS", skips)
